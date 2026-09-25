@@ -1,0 +1,69 @@
+ID,ObsType,Latitude,Longitude,Elevation(m),LocalDate,LocalTime,UTDate,UTTime,LimitingMag,SQMReading,SQMSerial,CloudCover,Constellation,SkyComment,LocationComment,Country,src
+339616,GAN,33.384595279387355,44.383148686535705,35.82,2025-11-01,15:13,2025-11-01,12:13,2,,,clear,Perseus,,,Iraq,/documents/1190/GaN2025.csv
+333312,GAN,33.2999891,44.3301218,33.89,2025-04-24,22:30,2025-04-24,19:30,0,,,1/4 of sky,Leo,Sky glow and dust,"Urban residential location, with many shops and unregulated lighting",Iraq,/documents/1190/GaN2025.csv
+313715,GAN,33.30001064226175,44.32969042346224,33.99,2023-12-25,22:28,2023-12-25,19:28,1,3.0,,clear,Perseus,"Clear sky, no clouds, no wind","A lot of lightning in the  street, bortle sky =9",Iraq,/documents/661/GaN2023.csv
+310960,GAN,29.301807460371784,47.99059261620675,31.72,2023-11-26,21:36,2023-11-26,18:36,5,,,1/4 of sky,Perseus,,,Kuwait,/documents/661/GaN2023.csv
+307731,GAN,29.3352938,48.0715612,3.28,2023-09-26,13:04,2023-09-26,10:04,2,,,clear,Cygnus,I'm in a middle of a city but clear skies,,Kuwait,/documents/661/GaN2023.csv
+291132,GAN,29.1564,47.79,69.1517,2022-12-29,21:03,2022-12-30,00:03,2,,,clear,Pegasus,,,Kuwait,/documents/662/GaN2022.csv
+283095,GAN,29.3117,47.4818,150.281,2022-07-23,09:00,2022-07-23,12:00,6,,,1/4 of sky,Hercules,Little haze to the North    Few clouds to the North    Sky glow- Dark,"Al Fintas, a major suburban city in Kuwait    5 street light along the main streets.     light sources from people houses, and some trees.",Kuwait,/documents/662/GaN2022.csv
+275008,GAN,29.3349,47.99,21.3419,2022-03-24,21:28,2022-03-25,00:28,-9999,,,1/4 of sky,Leo,Clear sky,Home,Kuwait,/documents/662/GaN2022.csv
+275002,GAN,32.614,44.0238,29.3675,2022-03-24,19:09,2022-03-24,22:09,2,,,clear,Leo,,,Iraq,/documents/662/GaN2022.csv
+275001,GAN,32.614,44.0238,29.3675,2022-03-24,19:09,2022-03-24,22:09,2,,,clear,Leo,,,Iraq,/documents/662/GaN2022.csv
+270843,GAN,29.3235,47.936,11.4327,2021-12-10,01:20,2021-12-09,18:20,5,,,1/2 of sky,Perseus,,,Kuwait,/documents/663/GaN2021.csv
+270841,GAN,29.3137,48.0092,33.4006,2021-12-10,00:48,2021-12-09,17:48,4,,,1/2 of sky,Perseus,,,Kuwait,/documents/663/GaN2021.csv
+257155,GAN,30.3803,47.7118,12.1651,2021-04-16,22:46,2021-04-17,01:46,2,,,clear,Leo,,,Iraq,/documents/663/GaN2021.csv
+256489,GAN,29.2174,48.1003,4.11266,2021-04-15,00:35,2021-04-15,03:35,-9999,,,1/4 of sky,Leo,,,Kuwait,/documents/663/GaN2021.csv
+255288,GAN,33.2404,44.2684,35.3696,2021-04-11,11:47,2021-04-11,14:47,-9999,,,1/4 of sky,Leo,,,Iraq,/documents/663/GaN2021.csv
+247910,GAN,29.2034,48.1045,11.4074,2021-02-11,19:21,2021-02-11,22:21,3,,,clear,Orion,sky was  in clear condition.,,Kuwait,/documents/663/GaN2021.csv
+247909,GAN,29.2034,48.1045,11.4074,2021-02-11,17:35,2021-02-11,20:35,3,,,clear,Orion,sky was  in clear condition.,,Kuwait,/documents/663/GaN2021.csv
+193769,DSM,37.293,41.5207,957.41,2017-09-09,14:32,2017-09-09,17:32,3,17.36,,clear,,"From ""Dark Sky Meter""  sky: """"",,Turkey,/documents/667/GaN2017.csv
+193689,DSM,33.4097,44.4732,35.32,2017-09-04,14:43,2017-09-04,17:43,3,16.78,,clear,,"From ""Dark Sky Meter""  sky: """"",,Iraq,/documents/667/GaN2017.csv
+193671,DSM,36.1322,44.0461,422.74,2017-09-03,20:02,2017-09-03,23:02,1,14.94,,clear,,"From ""Dark Sky Meter""  sky: """"",,Iraq,/documents/667/GaN2017.csv
+177111,DSM,29.289,48.0779,9.29,2016-07-04,17:59,2016-07-04,20:59,3,16.94,,clear,,"From ""Dark Sky Meter""  sky: ""Foggy""",,Kuwait,/documents/668/GaN2016.csv
+171222,GAN,29.669,45.3625,280.27,2016-03-10,20:37,2016-03-10,23:37,4,,,1/4 of sky,Orion,"mostly clear skies with no city lights, but other structures are present","Desert conditions, Temperatures in the 80's Fahrenheit,",Iraq,/documents/668/GaN2016.csv
+171220,GAN,29.5352,45.9888,246.28,2016-02-08,22:00,2016-02-09,01:00,4,,,1/4 of sky,Orion,"Few clouds, mid 70's Fahrenheit .","Desert, no city lights but some made from other structures near by",Iraq,/documents/668/GaN2016.csv
+175558,VDN,37.1472,38.7853,0.0,2015-09-12,19:55,2015-09-12,22:55,1,,,clear,,"From ""Loss of the Night"";NELM=1.06 +/- 3.94 (method 2);70 stars, faintest found V=5.07",,,/documents/669/GaN2015.csv
+163001,VDN,37.1472,38.7853,0.0,2015-09-12,19:55,2015-09-12,22:55,1,,,clear,,"From ""Loss of the Night"";NELM=1.06 +/- 3.94 (method 2);70 stars, faintest found V=5.07",,,/documents/669/GaN2015.csv
+162850,VDN,37.1472,38.7853,0.0,2015-09-12,19:55,2015-09-12,22:55,1,,,clear,,"From ""Loss of the Night"";NELM=1.06 +/- 3.94 (method 2);70 stars, faintest found V=5.07",,,/documents/669/GaN2015.csv
+162849,VDN,37.1472,38.7853,0.0,2015-09-12,19:55,2015-09-12,22:55,1,,,clear,,"From ""Loss of the Night"";NELM=1.06 +/- 3.94 (method 2);70 stars, faintest found V=5.07",,,/documents/669/GaN2015.csv
+162731,VDN,37.1472,38.7853,0.0,2015-09-12,19:55,2015-09-12,22:55,1,,,clear,,"From ""Loss of the Night"";NELM=1.06 +/- 3.94 (method 2);70 stars, faintest found V=5.07",,,/documents/669/GaN2015.csv
+162730,VDN,37.1472,38.7853,0.0,2015-09-12,19:55,2015-09-12,22:55,1,,,clear,,"From ""Loss of the Night"";NELM=1.06 +/- 3.94 (method 2);70 stars, faintest found V=5.07",,,/documents/669/GaN2015.csv
+162729,VDN,37.1472,38.7853,0.0,2015-09-12,19:55,2015-09-12,22:55,1,,,clear,,"From ""Loss of the Night"";NELM=1.06 +/- 3.94 (method 2);70 stars, faintest found V=5.07",,,/documents/669/GaN2015.csv
+162629,VDN,37.1472,38.7853,0.0,2015-09-12,19:55,2015-09-12,22:55,1,,,clear,,"From ""Loss of the Night"";NELM=1.06 +/- 3.94 (method 2);70 stars, faintest found V=5.07",,,/documents/669/GaN2015.csv
+162628,VDN,37.1472,38.7853,0.0,2015-09-12,19:55,2015-09-12,22:55,1,,,clear,,"From ""Loss of the Night"";NELM=1.06 +/- 3.94 (method 2);70 stars, faintest found V=5.07",,,/documents/669/GaN2015.csv
+162624,VDN,37.1472,38.7853,0.0,2015-09-12,19:55,2015-09-12,22:55,1,,,clear,,"From ""Loss of the Night"";NELM=1.06 +/- 3.94 (method 2);70 stars, faintest found V=5.07",,,/documents/669/GaN2015.csv
+159876,VDN,29.143,48.1167,17.75,2015-03-15,22:22,2015-03-16,01:22,2,,,clear,,"From ""Loss of the Night"";NELM=1.77 +/- 0.14 (method 2);8 stars, faintest found V=1.79",,Kuwait,/documents/669/GaN2015.csv
+153164,GAN,34.4576,46.6705,1337.0,2015-03-11,23:15,2015-03-12,02:45,2,,,1/4 of sky,Orion,,,Iran,/documents/669/GaN2015.csv
+152251,GAN,36.7417,39.2207,436.22,2015-04-12,20:00,2015-04-12,23:00,2,,,1/4 of sky,Leo,,,Turkey,/documents/669/GaN2015.csv
+152250,GAN,36.7417,39.2207,436.22,2015-02-10,19:00,2015-02-10,21:00,2,,,over 1/2 of sky,Orion,,,Turkey,/documents/669/GaN2015.csv
+152249,GAN,36.7417,39.2207,436.22,2015-01-20,19:00,2015-01-20,21:00,3,,,1/2 of sky,Orion,,,Turkey,/documents/669/GaN2015.csv
+152248,GAN,36.7417,39.2207,436.22,2015-03-12,20:00,2015-03-12,22:00,3,,,1/2 of sky,Orion,,,Turkey,/documents/669/GaN2015.csv
+144390,DSM,34.812,46.4993,1348.45,2014-12-21,01:53,2014-12-21,05:23,4,18.01,,clear,,"From ""Dark Sky Meter""  sky: ""clear""",,Iran,/documents/670/GaN2014.csv
+144272,DSM,29.149,48.1194,8.4,2014-12-11,01:10,2014-12-11,04:10,3,17.24,,clear,,"From ""Dark Sky Meter""  sky: """"",,Kuwait,/documents/670/GaN2014.csv
+137293,VDN,29.2582,47.9351,42.5,2014-07-16,21:39,2014-07-17,00:39,6,,,clear,,"From ""Loss of the Night"";NELM=5.995 +/- 1.005 (method 1);20 stars, faintest found V=4.99",,Kuwait,/documents/670/GaN2014.csv
+124709,VDN,29.3687,48.0158,0.0,2014-02-21,19:15,2014-02-21,22:15,2,,,clear,,"From ""Loss of the Night"";NELM=1.980 +/- 0.280 (method 1);7 stars, faintest found V=1.7",,Kuwait,/documents/670/GaN2014.csv
+124028,VDN,36.2089,43.995,406.37,2013-09-23,19:54,2013-09-23,22:54,7,,,clear,,"From ""Loss of the Night"";NELM=12.670 +/- 1.440 (method 2);7 stars, faintest found V=2.72",,Iraq,/documents/671/GaN2013.csv
+123892,VDN,34.7858,44.6617,201.81,2013-08-05,23:47,2013-08-06,02:47,6,,,clear,,"From ""Loss of the Night"";NELM=5.855 +/- 1.145 (method 1);7 stars, faintest found V=4.71",,Iraq,/documents/671/GaN2013.csv
+123864,VDN,34.7855,44.662,201.81,2013-08-02,00:02,2013-08-02,03:02,4,,,clear,,"From ""Loss of the Night"";NELM=3.740 +/- 0.340 (method 1);7 stars, faintest found V=3.4",,Iraq,/documents/671/GaN2013.csv
+123723,VDN,34.7857,44.6621,202.24,2013-07-09,00:05,2013-07-09,03:05,6,,,clear,,"From ""Loss of the Night"";NELM=5.985 +/- 1.015 (method 1);12 stars, faintest found V=4.97",,Iraq,/documents/671/GaN2013.csv
+123574,VDN,36.8474,42.9882,558.47,2013-05-18,01:26,2013-05-18,04:26,6,,,clear,,"From ""Loss of the Night"";NELM=5.575 +/- 1.425 (method 1);7 stars, faintest found V=4.15",,Iraq,/documents/671/GaN2013.csv
+91455,GAN,29.3822,41.6406,656.79,2012-04-19,21:51,2012-04-20,00:51,6,,5663,clear,Leo,,,Saudi Arabia,/documents/672/GaN2012.csv
+80767,GAN,35.9116,39.0017,242.34,2012-01-19,20:57,2012-01-19,22:57,2,,,1/4 of sky,Orion,The Stars  in the sky were scattered....the vision of the sky was very beautiful and had an elegant look....,,Syria,/documents/672/GaN2012.csv
+80766,GAN,35.9305,38.9845,237.0,2012-01-19,20:10,2012-01-19,22:10,2,,,1/4 of sky,Orion,The Stars were in the sky were scattered....the vision of the sky was very beautiful and had an elegant look....,,Syria,/documents/672/GaN2012.csv
+77943,GAN,33.2939,44.2489,35.69,2011-04-05,19:57,2011-04-05,22:57,3,,,clear,Leo,Clear sky.  Some dusty conditions.,"About 10 miles outside the city of Baghdad.  No immediate lights, but there are a handful within 100 yards.  No trees or structures blocking view of sky.",Iraq,/documents/673/GaN2011.csv
+73703,GAN,34.7938,48.5142,1830.36,2011-03-06,21:35,2011-03-07,01:05,4,,,clear,Orion,,,Iran,/documents/673/GaN2011.csv
+69221,GAN,36.6633,48.5166,1667.6,2011-03-03,23:50,2011-03-04,03:20,4,,,1/4 of sky,Orion,,,Iran,/documents/673/GaN2011.csv
+36921,GAN,29.328,48.0346,25.08,2010-03-05,23:00,2010-03-06,02:00,3,,,clear,Orion,,,Kuwait,/documents/674/GaN2010.csv
+33855,GAN,36.6632,48.518,1666.96,2010-03-03,21:00,2010-03-04,00:30,4,,,1/4 of sky,Orion,"Inside Zanjan, Iran. Looking fine for the city.","Zanjan, western Iran.",Iran,/documents/674/GaN2010.csv
+65028,GAN,29.3115,47.9114,8.97,2009-03-29,19:50,2009-03-29,22:50,2,,,clear,Orion,,,Kuwait,/documents/675/GaN2009.csv
+64403,GAN,29.0231,48.1036,66.11,2009-03-28,19:00,2009-03-28,22:00,2,,,clear,Orion,in kuwait the night sky was dusty,in kuwait the night sky was dusty,Kuwait,/documents/675/GaN2009.csv
+64402,GAN,29.0918,48.0762,88.94,2009-03-28,19:00,2009-03-28,22:00,2,,,clear,Orion,in kuwait the night sky was dusty,in kuwait the night sky was dusty,Kuwait,/documents/675/GaN2009.csv
+60217,GAN,31.3167,48.7,21.25,2009-03-22,23:00,2009-03-23,03:30,4,,,clear,Orion,,Iran-Ahvaz,Iran,/documents/675/GaN2009.csv
+59446,GAN,37.1675,38.8079,545.08,2009-03-21,22:00,2009-03-22,00:00,3,,,1/4 of sky,Orion,eye,,Turkey,/documents/675/GaN2009.csv
+326914,GAN,29.281567258406376,47.96095289853661,33.51,2024-12-10,17:34,2024-12-10,14:34,0,,,clear,Pegasus,,,Kuwait,/documents/926/GaN2024.csv
+321365,GAN,33.315241,44.3660671,35.57,2024-05-31,23:58,2024-05-31,20:58,1,,,clear,Bootes,"The sky is clear and there are no clouds. Temp. 31°
+Moon 34%
+No wind
+Light pollution 8","No trees, only
+Residential houses",Iraq,/documents/926/GaN2024.csv
+318965,GAN,33.299458,44.33014899999999,34.35,2024-04-08,20:04,2024-04-08,17:04,2,,,1/4 of sky,Leo,"High amounts light pollution (PORTEL 8), small clouds scattered in the sky, no winds nor haze","Urban location (city center), house rooftop, intense lighting from all directions.",Iraq,/documents/926/GaN2024.csv

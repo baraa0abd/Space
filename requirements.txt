@@ -1,0 +1,14 @@
+streamlit
+numpy
+pandas
+scipy
+scikit-learn
+astropy
+requests
+pillow
+pydeck
+altair
+joblib
+xgboost
+fastapi
+uvicorn

@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.claude/
+# large, regenerable
+data/model.joblib
+data/gan_all.csv
+data/*.log
+# user-submitted observations stay local
+data/observations.csv
+data/ground_obs.csv
