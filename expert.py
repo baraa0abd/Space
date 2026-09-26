@@ -8,7 +8,16 @@ import pandas as pd
 import pydeck as pdk
 import streamlit as st
 
+import skyclass
 import skyq
+
+
+def confusion_chart(cm, labels, title):
+    d = pd.DataFrame([dict(actual=labels[i], predicted=labels[j], n=v) for i, r in enumerate(cm) for j, v in enumerate(r)])
+    base = alt.Chart(d, title=title).encode(x=alt.X("predicted:N", sort=labels), y=alt.Y("actual:N", sort=labels))
+    dark = alt.condition(alt.datum.n > max(map(max, cm)) / 2, alt.value("white"), alt.value("black"))
+    return (base.mark_rect().encode(color=alt.Color("n:Q", scale=alt.Scale(scheme="blues"), legend=None))
+            + base.mark_text(fontSize=14).encode(text="n:Q", color=dark))
 
 
 SITES = {  # name: (lat, lon) — Mosul / Nineveh only
@@ -68,10 +77,15 @@ with st.sidebar:
         st.caption(f"Satellite model says {model_sqm:.2f} → model error {model_sqm - measured:+.2f} mag. "
                    "Log several of these to recalibrate `GLOW_SCALE`.")
 
-tab_eng, tab_map, tab_plan, tab_fix, tab_model = st.tabs(
-    ["🧭 Mosul decision engine", "🗺️ Light-pollution map & site finder", "🌙 Tonight's observation planner", "💡 Responsible-lighting scenario", "🤖 Model & data"])
+tab_eng, tab_sf, tab_map, tab_plan, tab_fix, tab_model = st.tabs(
+    ["🧭 Mosul decision engine", "🌉 San Francisco v2", "🗺️ Light-pollution map & site finder", "🌙 Tonight's observation planner", "💡 Responsible-lighting scenario", "🤖 Model & data"])
 
 # ------------------------------------------------------------------ map
+def skyclass_load():
+    import skyclass as _sc
+    return _sc.load()
+
+
 @st.cache_resource(show_spinner="Loading Nineveh cell table (VNP46A2 + AI + physics + elevation + roads)…")
 def engine_cells():
     import engine
@@ -167,6 +181,62 @@ with tab_eng:
                "Hybrid = mean(AI, physics) because the AI alone under-rates mid-size city cores (Macro-F1 0.38).")
     st.markdown("**REST API** — `uvicorn api:app --port 8000` → `/sky-quality`, `/best-locations`, `/pollution-map`, "
                 "`/observation-conditions` (docs at `/docs`).")
+
+with tab_sf:
+    import sf as sfmod
+    _, sr = sfmod.load()
+    _, mr = skyclass_load()
+    st.markdown("**SkyQ San Francisco — prototype v2** (`plans/sf_usa_3day_plan.json`, `sf.py`). Same pipeline as Mosul, "
+                "run where real ground truth exists, so accuracy is **measured locally** instead of estimated.")
+    best = sr["best"]
+    bm = sr["models"][best]
+    m_best = mr["models"][mr["best"]]
+    cmp = pd.DataFrame({
+        "Mosul (v1)": {"training observations": mr["n"], "local ground truth": mr.get("iraq_points", 0),
+                       "best model": mr["best"], "Macro-F1 (spatial CV)": m_best["macro_f1"],
+                       "within one class": m_best["within_one_class"],
+                       "local hold-out Macro-F1": m_best.get("iraq_holdout", {}).get("macro_f1")},
+        "San Francisco (v2)": {"training observations": sr["n"], "local ground truth": sr["n_bay_area"],
+                               "best model": best, "Macro-F1 (spatial CV)": bm["bay_area"]["macro_f1"],
+                               "within one class": bm["bay_area"]["within_one_class"],
+                               "local hold-out Macro-F1": bm["south_bay_holdout"]["macro_f1"]},
+    })
+    st.dataframe(cmp.astype(str), width="stretch")
+    st.caption("Mosul: spatial CV over the whole Mediterranean/Middle East set; local hold-out = Iraq box. "
+               "SF: spatial CV (0.25° blocks) scored on Bay Area points; local hold-out = South Bay (never seen in training).")
+
+    st.subheader("Model comparison (Bay Area)")
+    rows = {n: {**{f"bay_{k}": v for k, v in d["bay_area"].items()}, "south_bay_macro_f1": d["south_bay_holdout"]["macro_f1"],
+                "all_regions_macro_f1": d["all_regions"]["macro_f1"]} for n, d in sr["models"].items()}
+    rows.update({n: {f"bay_{k}": v for k, v in d["bay_area"].items()} for n, d in sr["baselines"].items()})
+    st.dataframe(pd.DataFrame(rows).T[["bay_macro_f1", "bay_accuracy", "bay_balanced_accuracy", "bay_within_one_class",
+                                        "bay_quadratic_kappa", "south_bay_macro_f1", "all_regions_macro_f1"]], width="stretch")
+    c1, c2 = st.columns(2)
+    c1.altair_chart(confusion_chart(sr["confusion_bay_area"], skyclass.CLASSES, f"Confusion – {best} (Bay Area, spatial CV)"),
+                    width="stretch")
+    c2.markdown("**Per-class (Bay Area)**")
+    c2.dataframe(pd.DataFrame(sr["per_class_bay_area"]).T, width="stretch")
+    c2.markdown("**Class counts (Bay Area):** " + ", ".join(f"{k} {v:,}" for k, v in sr["class_counts_bay_area"].items()))
+
+    m = st.columns(4)
+    m[0].metric("SQM regression MAE (Bay Area)", f"{sr['sqm_regression']['mae_bay_area']} mag/arcsec²",
+                f"n={sr['sqm_regression']['n_bay_area']}", delta_color="off")
+    m[1].metric("Physics LOO MAE (Bay Area SQM)", f"{sr['physics']['loo_mae']} mag/arcsec²",
+                f"scale {sr['physics']['scale']}, n={sr['physics']['n']}", delta_color="off")
+    m[2].metric("AI weight in hybrid (chosen by validation)", f"{sr['hybrid_ai_weight']:.2f}")
+    ft = sr.get("field_test")
+    m[3].metric("Field test (final exam)", "pending" if not ft else f"Macro-F1 {ft['macro_f1']}",
+                "campaign ≈ Oct 8–12 (new moon)" if not ft else f"n={ft['n']}", delta_color="off")
+    st.markdown("**Hybrid Macro-F1 by AI weight** (0 = physics only, 1 = AI only)")
+    st.dataframe(pd.DataFrame([sr["hybrid_macro_f1_by_ai_weight"]]), hide_index=True, width="stretch")
+    st.caption(sr["hybrid_note"])
+    fi = pd.DataFrame(dict(feature=list(sr["feature_importance"]), importance=list(sr["feature_importance"].values())))
+    st.altair_chart(alt.Chart(fi).mark_bar().encode(x="importance:Q", y=alt.Y("feature:N", sort="-x")).properties(
+        title="Feature importance (incl. new SF features: elevation, coast, lit fraction)"), width="stretch")
+    st.info("Not done yet (needs people or accounts): calibrated VNP46A2 radiance via NASA Earthdata login (recent lights "
+            "still come from GIBS display images, the plan's fallback) and the 3-night SQM field campaign. The field "
+            "readings go in `data/sf_field_readings.csv`; `python sf.py` then scores them as the untouched final test.")
+
 
 with tab_map:
     c1, c2 = st.columns([2, 1])
@@ -325,14 +395,6 @@ def lp_validation():
 @st.cache_data(show_spinner="Checking hilal criterion on historical crescents…")
 def hilal_validation():
     return skyq.validate_hilal()
-
-
-def confusion_chart(cm, labels, title):
-    d = pd.DataFrame([dict(actual=labels[i], predicted=labels[j], n=v) for i, r in enumerate(cm) for j, v in enumerate(r)])
-    base = alt.Chart(d, title=title).encode(x=alt.X("predicted:N", sort=labels), y=alt.Y("actual:N", sort=labels))
-    dark = alt.condition(alt.datum.n > max(map(max, cm)) / 2, alt.value("white"), alt.value("black"))
-    return (base.mark_rect().encode(color=alt.Color("n:Q", scale=alt.Scale(scheme="blues"), legend=None))
-            + base.mark_text(fontSize=14).encode(text="n:Q", color=dark))
 
 
 with tab_model:

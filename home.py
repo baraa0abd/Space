@@ -45,6 +45,8 @@ h1, h2, h3, h4 { font-family: 'Cairo', sans-serif !important; }
 .spot { border-radius: 16px; padding: 14px 16px; margin: 8px 0; border: 1px solid rgba(128,128,128,.25);
   border-right: 6px solid var(--c); }
 .spot .n { font-size: 1.2rem; font-weight: 800; }
+.lpbar { height: 12px; border-radius: 6px; background: rgba(128,128,128,.25); margin: 8px 0; overflow: hidden; }
+.lpbar div { height: 100%; border-radius: 6px; }
 .go { display: inline-block; margin-top: 6px; padding: 6px 14px; border-radius: 10px; background: #466eff; color: #fff !important;
   text-decoration: none !important; font-weight: 700; }
 @media (max-width: 640px) { .hero { flex-direction: column; text-align: center; } .chips { grid-template-columns: repeat(2, 1fr); }
@@ -116,6 +118,89 @@ def reasons(a):
     return out
 
 
+def factor_groups(a, lp_pct):
+    """All factors that affect observing, grouped; live value + status where we measure it, tips where we can't.
+    Status: 🟢 good · 🟠 so-so · 🔴 bad · ℹ️ advice (not measured)."""
+    g = lambda v, ok, mid: "🟢" if v < ok else "🟠" if v < mid else "🔴"
+    sun = a["sun_alt"]
+    twilight = ("🟢", "ليل مظلم كامل") if sun < -18 else ("🟠", "شفق فلكي خفيف") if sun < -12 else \
+        ("🟠", "شفق بحري — السما بعدها مضيئة") if sun < -6 else ("🔴", "شفق مدني — بعد الغروب مباشرة") if sun < 0 else ("🔴", "نهار")
+    moon_s = a["components"]["moon"]
+    moon_txt = f"مضاء {a['moon_illum']:.0%} · " + ("تحت الأفق 👍" if a["moon_alt"] <= 0 else f"ارتفاعه {a['moon_alt']:.0f}°")
+    info = "ℹ️"
+    return [
+        ("🌦️ الجو والتلوث المحيط", [
+            ("☁️ الغيوم والضباب", f"{a['cloud_cover']}%", g(a["cloud_cover"], 20, 50),
+             "تحجب ضوء النجوم أو تضعفه، وحتى الغيوم الرقيقة تقلّل جودة الرصد."),
+            ("🌫️ الغبار والعواصف الترابية والدخان", f"AOD {a['aod']} · الرؤية {a['visibility_km']} كم", g(a["aod"], 0.3, 0.5),
+             "يشتّت ويمتص الضوء، فتقل شفافية الجو ويصير الهلال الخافت أصعب بالتمييز."),
+            ("💡 التلوث الضوئي", f"{lp_pct:.0f}%", g(lp_pct, 40, 70),
+             "إنارة الشوارع والمباني والإعلانات ترفع سطوع السما، فتختفي النجوم الأضعف بالخلفية."),
+            ("💨 اضطراب الهواء (Seeing)", f"{a['seeing_arcsec']}″ · ريح فوق {a['wind250']} كم/س", g(a["seeing_arcsec"], 1.5, 2.5),
+             "اختلاف حرارة وحركة طبقات الهواء يخلّي النجم يرتعش ويتوسّع ويفقد التفاصيل — يأثر أكثر على التلسكوب والتصوير."),
+            ("💧 الرطوبة وبخار الماء", f"{a['humidity']}%", g(a["humidity"], 70, 85),
+             "بخار الماء يمتص أطوال موجية معيّنة (خصوصاً تحت الحمراء)، والندى على العدسات يضعف الصورة."),
+            ("🔥 حرارة الأسطح القريبة", "نصيحة", info,
+             "الهواء الحار الصاعد من الإسفلت والأسطح يشوّه الصورة: ابتعد عنها، وخلي التلسكوب يبرد 30–60 دقيقة قبل الرصد."),
+        ]),
+        ("🌅 الإضاءة الطبيعية ومكان الجرم بالسما", [
+            ("🌇 الشفق وضوء الشمس", twilight[1], twilight[0],
+             "بعد الغروب تبقى السما مضيئة شوية. هذا أهم عامل لرصد الهلال الجديد لأن الهلال ضعيف وخلفيته مضيئة."),
+            ("🌕 ضوء القمر", moon_txt, "🟢" if moon_s >= 80 else "🟠" if moon_s >= 50 else "🔴",
+             "القمر يرفع سطوع السما ويصعّب رصد النجوم والأجرام الخافتة. أحسن رصد بليالي المحاق."),
+            ("📐 قرب الجرم من الأفق", "باوع فوق 30° إذا تگدر", info,
+             "ضوء الجرم القريب من الأفق يمر بغلاف جوي أطول فيضعف أكثر. شوف ارتفاع كل نجمة بتبويب «شنو أشوف؟»."),
+            ("🏢 عوائق الأفق", "اختار مكان مفتوح", info,
+             "المباني والجبال والأشجار تحجب الأجرام الواطية حتى لو الجو صافي، خصوصاً الهلال لأنه قريب من الأفق."),
+        ]),
+        ("📷 تشويش الكاميرا والأجهزة (النويز)", [
+            ("🎲 ضوضاء الفوتونات (Shot noise)", "طبيعي", info,
+             "عدد فوتونات الضوء الخافت يتذبذب، فيصعب تمييزه. الحل: تعريض أطول أو جمع صور كثيرة (Stacking)."),
+            ("🌡️ التيار المظلم (Dark current)", "يزيد بالحرارة", info,
+             "الحساس يولّد إشارة حتى بدون ضوء. برّد الكاميرا وصوّر صور Dark frames وانطرحها من الصور."),
+            ("📶 ضوضاء القراءة (Read noise)", "بكل صورة", info,
+             "إلكترونيات الحساس تضيف تشويش لكل صورة. صور أقل بتعريض أطول تقلّل أثرها."),
+            ("🔴 البكسلات الساخنة واختلاف حساسية البكسلات", "ممكن تنفهم نجوم", info,
+             "نقاط أو أنماط زائفة. تتصلّح بصور المعايرة Dark و Flat."),
+            ("☄️ الأشعة الكونية", "نقاط وخطوط زائفة", info,
+             "تضرب الحساس وتترك نقاط أو خطوط مضيئة. جمع صور متعددة يشيلها."),
+            ("🛰️ مرور الأقمار الصناعية", "خطوط بالصور", info,
+             "تترك خطوط مضيئة خصوصاً وقت الشفق. صوّر بعد الظلام الكامل واستخدم Stacking."),
+            ("🔧 أخطاء التركيب", "افحص قبل الرصد", info,
+             "اهتزاز الحامل، ضعف التتبّع، سوء التركيز (Focus)، واتّساخ العدسات كلها تخرّب الصورة."),
+        ]),
+    ]
+
+
+def noise_sources(a, lp_pct, moon_tip):
+    """Everything that degrades the sky here and now as a 0-100 'noise' level (higher = worse), plus how to reduce it."""
+    c = a["components"]
+    return [
+        ("💡", "التلوث الضوئي", f"{lp_pct:.0f}%", lp_pct,
+         "روح لمكان أظلم (شوف الأماكن جوّه)، باوع لجهة بعيدة عن المدينة، وبالتصوير استخدم فلتر تلوث ضوئي."),
+        ("🌕", "ضوء القمر", f"مضاء {a['moon_illum']:.0%}" + (" · غايب" if a["moon_alt"] <= 0 else f" · ارتفاعه {a['moon_alt']:.0f}°"),
+         100 - c["moon"], moon_tip),
+        ("🌫️", "الغبار والعجاج", f"AOD {a['aod']}", float(np.clip((a["aod"] - 0.1) / 0.6, 0, 1) * 100),
+         "انتظر يوم أو يومين بعد العجاج، وروح لمكان أعلى — الغبار يتجمّع قرب الأرض."),
+        ("☁️", "الغيوم", f"{a['cloud_cover']}%", float(a["cloud_cover"]),
+         "اختار ساعة خضرة من شريط الساعات فوق، أو جرّب ليلة ثانية."),
+        ("💨", "اضطراب الهواء", f"{a['seeing_arcsec']}″", float(np.clip((a["seeing_arcsec"] - 1) / 2, 0, 1) * 100),
+         "رصد النجوم العالية (فوق 45°)، ابتعد عن الإسفلت والأسطح الحارة، وخلي التلسكوب يبرد ساعة قبل الرصد."),
+        ("💧", "الرطوبة والندى", f"{a['humidity']}%", float(np.clip((a["humidity"] - 60) / 35, 0, 1) * 100),
+         "استخدم غطاء ندى أو سخانة للعدسة، وغطّي الأجهزة لما ما تستعملها."),
+    ]
+
+
+def noise_word(v):
+    return ("قليل", "#30a46c") if v < 30 else ("متوسط", "#f5a524") if v < 60 else ("عالي", "#e5484d")
+
+
+@st.cache_data(ttl=3600, show_spinner=False)
+def moon_track(lat, lon, night):
+    times = engine.local_night(night)
+    return pd.concat([pd.DataFrame(dict(time=times)), engine.sky_geometry(lat, lon, times).reset_index(drop=True)], axis=1)
+
+
 # ------------------------------------------------------------------ cached calls
 @st.cache_resource(show_spinner="⏳ دا نجهّز خريطة الموصل…")
 def cell_table():
@@ -155,7 +240,7 @@ def targets(lat, lon, night, sqm):
         best = df.score.idxmax()
         rows.append(dict(target=t, aperture=ap, score=df.score.max(), rec=rec, alt=df.target_alt[best],
                          az=df.target_az[best], hour=df.local_time[best]))
-    return pd.DataFrame(rows)
+    return pd.DataFrame(rows), wx[1]  # notes: forecast fallback used?
 
 
 @st.cache_data(ttl=3600, show_spinner="⏳ دا نحسب الهلال…")
@@ -228,14 +313,61 @@ with st.container(border=True):
 # ------------------------------------------------------------------ THE ANSWER
 a = analyze(lat, lon, when, obs)
 rec, rec_notes = recommend(lat, lon, radius, when, obs)
+rec = rec[rec.score > a["score"]].reset_index(drop=True) if len(rec) else rec  # only spots better than here
 k = a["cls"]
 color, verdict, _ = LEVEL[k]
 why = "".join(f"<li>{r}</li>" for r in reasons(a))
+_w = engine.REGIONS["mosul"]["weights"][obs]
+_c = a["components"]
+_raw = [_c["light"] * _w[0], _c["weather"] * _w[1], _c["moon"] * _w[2], _c["elevation"] * _w[3]]
+_parts = [int(v) for v in _raw]
+if a["sun_alt"] <= -12 and a["cloud_cover"] < 80:  # no cap: round so the parts add up exactly to the score
+    for i in sorted(range(4), key=lambda i: _raw[i] - _parts[i], reverse=True)[:max(0, a["score"] - sum(_parts))]:
+        _parts[i] += 1
+score_parts = (f"💡 ظلام السما {_parts[0]} + ☁️ الجو {_parts[1]} + 🌕 القمر {_parts[2]} + ⛰️ الارتفاع {_parts[3]}")
+if a["sun_alt"] > -12:
+    score_parts += " ← وتنقص لأن الشمس بعدها ما غابت"
+elif a["cloud_cover"] >= 80:
+    score_parts += " ← وتنقص لأن الغيوم فوق 80%"
+score_parts += " · التفاصيل بـ «🧮 منين اجت الدرجة» تحت"
 st.markdown(f"""<div class="hero" style="--c:{color}; --s:{a['score']}">
   <div class="ring"><div class="in"><div><b>{a['score']}</b><small>من 100</small></div></div></div>
   <div><div class="verdict">{verdict}</div>
   <div>{TYPE_UI[obs][0]} · {place} · {DAYS[night.weekday()]} {HOUR_LABEL[hour]}</div>
-  <ul class="why">{why}</ul></div></div>""", unsafe_allow_html=True)
+  <ul class="why">{why}</ul>
+  <div class="hint">🧮 <b>{a['score']}</b> = {score_parts}</div></div></div>""", unsafe_allow_html=True)
+
+# where the score comes from (live breakdown)
+with st.expander(f"🧮 منين اجت الدرجة {a['score']}؟ شلون انحسبت؟"):
+    c_ = a["components"]
+    w_ = engine.REGIONS["mosul"]["weights"][obs]
+    cell_ = engine.nearest(engine.cells(), lat, lon)
+    rows_ = [
+        ("💡 ظلام السما (التلوث الضوئي)", c_["light"], w_[0],
+         f"معدل رأيين: **الذكاء الاصطناعي** ({cell_.ai_score:.0f}) و**النموذج الفيزيائي** ({cell_.physics_score:.0f}، "
+         f"سطوع السما {cell_.sqm:.1f}) من صور ناسا الليلية الحديثة"),
+        ("☁️ الجو", c_["weather"], w_[1],
+         f"غيوم {a['cloud_cover']}% · رطوبة {a['humidity']}% · غبار AOD {a['aod']} · رؤية {a['visibility_km']} كم "
+         "(توقعات Open-Meteo / Copernicus لهاي الساعة)"),
+        ("🌕 القمر", c_["moon"], w_[2],
+         f"مضاء {a['moon_illum']:.0%} · " + ("غايب تحت الأفق" if a["moon_alt"] <= 0 else f"ارتفاعه {a['moon_alt']:.0f}°") +
+         " (محسوب بمكتبة Astropy)"),
+        ("⛰️ الارتفاع", c_["elevation"], w_[3], f"{a['elevation_m']} م فوق البحر (كل ما أعلى، غبار وضباب أقل فوقك)"),
+    ]
+    st.markdown("**الدرجة = مجموع (درجة كل عامل × وزنه)**. الأوزان تتغيّر حسب نوع الرصد اللي اخترته:")
+    st.markdown("\n".join(f"- **{n}: {s}/100 × {wt:.0%} = {s * wt:.1f}** ← {why_}" for n, s, wt, why_ in rows_))
+    raw_ = sum(s * wt for _, s, wt, _ in rows_)
+    note_ = ""
+    if a["sun_alt"] > -12:
+        note_ = " · بس لأن **الشمس بعدها ما غابت كفاية**، الدرجة تنقص تلقائياً لـ 10 كحد أقصى"
+    elif a["cloud_cover"] >= 80:
+        note_ = " · بس لأن **الغيوم فوق 80%**، الدرجة تنقص تلقائياً لـ 20 كحد أقصى"
+    if note_:
+        st.markdown(f"**المجموع ≈ {raw_:.0f}**{note_} ← **الدرجة النهائية {a['score']}/100**")
+    else:
+        st.markdown(f"**المجموع = {a['score']}/100** (الأرقام فوق مقرّبة، فممكن الجمع اليدوي يفرق درجة وحدة)")
+    st.caption("التصنيف: 0–25 ما تصلح · 26–50 متوسطة · 51–75 زينة · 76–100 ممتازة. "
+               "الأوزان حالياً **مختارة من الفريق** (مو متعلّمة بعد)، وراح نتعلّمها من قياسات حقيقية بالمرحلة الجاية.")
 
 # next action in one sentence
 bt = a["best_time"]
@@ -248,18 +380,56 @@ elif bt:
 elif k <= 1:
     st.warning("👉 **نصيحتنا:** جرّب ليلة ثانية أو ساعة ثانية فوق، لأن هاي الليلة ما بيها وقت زين.")
 
-# factor chips
-c = a["components"]
-chip = lambda e, t, v, s: (f'<div class="chip" style="--c:{"#30a46c" if s >= 70 else "#f5a524" if s >= 40 else "#e5484d"}">'
-                           f'<div class="e">{e}</div><div class="t">{t}</div><div class="v">{v}</div></div>')
-light_word = "قوية" if c["light"] < 35 else "متوسطة" if c["light"] < 65 else "قليلة"
-moon_word = "مو مأثر" if c["moon"] >= 80 else "شوية" if c["moon"] >= 50 else "مضوي"
-dust_s = max(0, 100 - (a["aod"] - 0.1) * 150)
-dust_word = "صافي" if a["aod"] < 0.3 else "خفيف" if a["aod"] < 0.5 else "عجاج"
-st.markdown('<div class="chips">' + chip("💡", "أضواء المدينة", light_word, c["light"])
-            + chip("☁️", "الغيوم", f"{a['cloud_cover']}%", 100 - a["cloud_cover"])
-            + chip("🌕", "القمر", moon_word, c["moon"]) + chip("🌫️", "الغبار", dust_word, dust_s) + "</div>",
-            unsafe_allow_html=True)
+# light-pollution percentage at this place (sky brightness from recent NASA lights; 22 = pristine, 16 = brightest city)
+site_sqm = a["sqm"] if a.get("sqm") is not None else skyq.site_sqm(sqm_grid(), lat, lon)
+lp_pct = float(np.clip((22.0 - site_sqm) / 6.0, 0, 1) * 100)
+stars_here = float(skyq.visible_stars(skyq.limiting_mag(site_sqm, 7)))
+stars_dark = float(skyq.visible_stars(skyq.limiting_mag(22.0, 7)))
+hidden_pct = max(0.0, 100 * (1 - stars_here / stars_dark))
+brighter = 10 ** (0.4 * (22.0 - site_sqm))
+lp_level, lp_col = next((w, cl) for lim, w, cl in [(20, "خفيف جداً", "#30a46c"), (40, "خفيف", "#30a46c"),
+                                                    (60, "متوسط", "#f5a524"), (80, "عالي", "#e5484d"),
+                                                    (101, "عالي جداً", "#e5484d")] if lp_pct < lim)
+st.markdown(f"""<div class="spot" style="--c:{lp_col}">
+  <div class="n">💡 نسبة التلوث الضوئي بمكانك: <span style="color:{lp_col}">{lp_pct:.0f}%</span> — {lp_level}</div>
+  <div class="lpbar"><div style="width:{lp_pct:.0f}%; background:{lp_col}"></div></div>
+  ⭐ يخفي تقريباً <b>{hidden_pct:.0f}%</b> من النجوم: تشوف <b>~{stars_here:,.0f}</b> نجمة بدل <b>~{stars_dark:,.0f}</b> بسما مظلمة ·
+  🌃 السما هنا أضوى من الطبيعي بـ <b>{brighter:,.0f} مرة</b></div>""", unsafe_allow_html=True)
+st.caption("0% = سما البر الصافية بلا أي ضوء · 100% = أضوى مركز مدينة. محسوبة من صور ناسا الليلية الحديثة لمكانك. "
+           "🔬 كل العوامل اللي تأثر على رصدك (اضطراب الهواء، الرطوبة، الشفق، نويز الكاميرا…) بتبويب «كل العوامل» جوّه.")
+
+# ------------------------------------------------------------------ noise here, always visible
+mt = moon_track(lat, lon, night)
+if a["moon_alt"] <= 0:
+    moon_tip = "القمر غايب بهذا الوقت 👍"
+else:
+    after = mt[(mt.time > when) & (mt.moon_alt <= 0)]
+    nxt_nm = skyq.conjunctions(datetime.combine(night, datetime.min.time()) - timedelta(days=2), 32)[0]
+    moon_tip = (f"انتظر لحد ما يغيب القمر الساعة {after.time.iloc[0]:%H:%M}، أو باوع بعكس اتجاهه." if len(after) else
+                f"القمر ما يغيب هاي الليلة. أحسن ليالي للرصد حول المحاق ({nxt_nm + timedelta(hours=3):%d/%m})، "
+                "وبالتصوير باوع بعكس اتجاه القمر.")
+src = sorted(noise_sources(a, lp_pct, moon_tip), key=lambda x: -x[3])
+total_noise = 100 - a["score"]
+st.markdown(f"### 🔊 النويز الموجود بمكانك هسه — {total_noise}%")
+st.caption("النويز = كل شي يخرّب السما (ضوّ، قمر، غبار، غيوم، اضطراب هوا، رطوبة). كل ما يقل أحسن. "
+           "تحت كل مصدر عالي: شلون تقلله.")
+rows_html = ""
+for e, name, val, lvl, tip in src:
+    word, col = noise_word(lvl)
+    tip_html = f'<div class="hint">🛠️ {tip}</div>' if lvl >= 30 else ""
+    rows_html += (f'<div class="spot" style="--c:{col}; padding:10px 14px"><b>{e} {name}</b> — {val} · '
+                  f'<span style="color:{col}; font-weight:800">نويز {word} ({lvl:.0f}%)</span>'
+                  f'<div class="lpbar"><div style="width:{max(lvl, 2):.0f}%; background:{col}"></div></div>{tip_html}</div>')
+st.markdown(rows_html, unsafe_allow_html=True)
+with st.expander("📷 شلون تقلل نويز الكاميرا والتلسكوب؟"):
+    st.markdown("""
+- **🎲 ضوضاء الفوتونات:** صوّر **صور كثيرة واجمعها (Stacking)** بدل صورة وحدة، أو زيد وقت التعريض.
+- **🌡️ التيار المظلم:** **برّد الكاميرا**، وصوّر **Dark frames** (نفس الإعدادات بس الغطاء مسدود) وانطرحها.
+- **📶 ضوضاء القراءة:** صور **أقل بتعريض أطول** أحسن من صور كثيرة قصيرة كلش.
+- **🔴 البكسلات الساخنة:** صور المعايرة **Dark و Flat** تصلحها، و**Dithering** (تحريك بسيط بين الصور) يساعد.
+- **☄️ الأشعة الكونية و🛰️ خطوط الأقمار الصناعية:** **Stacking بطريقة Sigma-clipping** يشيلها، وصوّر بعد الظلام الكامل.
+- **🔧 الأجهزة:** ثبّت الحامل، ضبّط **التتبّع والتركيز (Focus)**، ونظّف العدسات قبل الرصد.
+""")
 
 # hour strip
 st.markdown("##### 🕒 كل ساعات الليلة (اخضر = زين)")
@@ -272,28 +442,60 @@ for r in a["hourly"].itertuples():
 st.markdown(f'<div class="strip">{cells_html}</div>', unsafe_allow_html=True)
 
 # ------------------------------------------------------------------ where instead
-st.markdown(f"### 🚗 وين أروح؟ أحسن أماكن ضمن {radius} كم")
-st.caption("اخترناها لأن سماها مظلمة، والجو هناك زين بالوقت اللي اخترته، وقريبة من شارع رئيسي تگدر توصله بالسيارة.")
+st.markdown(f"### 🚗 وين أروح حتى يقل النويز؟ أحسن أماكن ضمن {radius} كم")
+st.caption("اخترناها لأن النويز هناك أقل: سماها أظلم، والجو زين بالوقت اللي اخترته، وقريبة من شارع رئيسي تگدر توصله بالسيارة. "
+           "الأسهم تقارن النويز هناك ويّا مكانك: 🟢 أقل · 🔴 أكثر.")
+
+
+def cmp(e, here, there, fmt, tol):
+    col = "#30a46c" if there < here - tol else "#e5484d" if there > here + tol else "#9aa0a6"
+    return f'{e} {fmt(here)} ← <b style="color:{col}">{fmt(there)}</b>'
+
 if len(rec):
     for i, r in enumerate(rec.itertuples(), 1):
         col, _, short = LEVEL[int(r.cls)]
         medal = ["🥇", "🥈", "🥉"][i - 1] if i <= 3 else f"{i}."
         st.markdown(f"""<div class="spot" style="--c:{col}"><div class="n">{medal} {place_name(r.lat, r.lon)} —
           {int(r.score)}/100 ({short})</div>
-          🚗 {r.km:.0f} كم عنك · ☁️ غيوم {r.cloud_cover:.0f}% · 🛣️ {r.road_km:.1f} كم من الشارع · ⛰️ ارتفاع {r.elevation_m:.0f} م<br>
+          🚗 {r.km:.0f} كم عنك · 🛣️ {r.road_km:.1f} كم من الشارع · ⛰️ ارتفاع {r.elevation_m:.0f} م<br>
+          🔉 النويز هناك: <b>{100 - int(r.score)}%</b> بدل <b>{total_noise}%</b> ·
+          {cmp("💡", lp_pct, float(np.clip((22 - r.sqm) / 6, 0, 1) * 100), lambda v: f"{v:.0f}%", 3)} ·
+          {cmp("🌫️", a["aod"], r.aod, lambda v: f"{v:.2f}", 0.03)} ·
+          {cmp("☁️", a["cloud_cover"], r.cloud_cover, lambda v: f"{v:.0f}%", 5)} ·
+          {cmp("💨", a["seeing_arcsec"], float(skyq.seeing(r.wind10, r.wind250)), lambda v: f"{v:.1f}″", 0.1)}<br>
           <a class="go" target="_blank" href="https://www.google.com/maps/dir/?api=1&origin={lat},{lon}&destination={r.lat},{r.lon}">
           🧭 خذني هناك</a></div>""", unsafe_allow_html=True)
 else:
-    st.info("ماكو أماكن ضمن هاي المسافة قريبة من شارع. جرّب «🚙 طلعة (100 كم)».")
+    st.info("ماكو مكان أحسن من مكانك ضمن هاي المسافة. جرّب «🚙 طلعة (100 كم)» أو ليلة ثانية.")
 
 # ------------------------------------------------------------------ more (tabs)
 st.markdown("### 🎒 أشياء زيادة")
-t1, t2, t3, t4, t5 = st.tabs(["✨ شنو أشوف؟", "🌒 الهلال", "💡 خلّي سما مدينتك أحلى", "🙋 شاركنا", "📖 شنو يعني؟"])
+t0, t1, t2, t3, t4, t5 = st.tabs(["🔬 كل العوامل", "✨ شنو أشوف؟", "🌒 الهلال", "💡 خلّي سما مدينتك أحلى", "🙋 شاركنا",
+                                  "📖 شنو يعني؟"])
+with t0:
+    st.markdown("كل عامل يأثر على الرصد بوحدة من ثلاث طرق: **يقلّل الضوء الواصل**، أو **يزيد سطوع خلفية السما**، "
+                "أو **يشوّش الصورة والقياس**. القيم تحت **لمكانك ووقتك**: 🟢 زين · 🟠 متوسط · 🔴 سيء · ℹ️ نصيحة.")
+    for title, rows in factor_groups(a, lp_pct):
+        st.markdown(f"#### {title}")
+        for name, val, stt, why_txt in rows:
+            col = {"🟢": "#30a46c", "🟠": "#f5a524", "🔴": "#e5484d"}.get(stt, "#5b8cff")
+            st.markdown(f'<div class="spot" style="--c:{col}"><div class="n">{stt} {name} — {val}</div>{why_txt}</div>',
+                        unsafe_allow_html=True)
+    st.markdown("#### 🌒 النجوم مو مثل الهلال")
+    st.info("للنجوم الخافتة أهم شي **ظلام السما**. للهلال أهم شي **تباينه ويّا الشفق** و**ارتفاعه فوق الأفق**. "
+            "لهذا نحسبهم بطريقتين مختلفتين (عوامل الهلال بتبويب «الهلال»).")
+    st.markdown("#### 🛰️ لو التلسكوب بالفضاء؟")
+    st.markdown("تختفي **الغيوم والغبار واضطراب الهواء**، بس تبقى **ضوضاء الحساس والأشعة الكونية والضوء الشارد** "
+                "والخلفية من الغبار بين الكواكب. يعني حتى الرصد الفضائي مو خالي من التشويش.")
+    st.caption("المصادر: المرصد الأوروبي الجنوبي (ESO) · توثيق حساسات هابل (STScI) · المرصد البحري الأمريكي (USNO) · ناسا. "
+               "اضطراب الهواء (Seeing) تقدير من سرعة الريح العالية، مو قياس مباشر.")
 SQM = sqm_grid()
 sqm = skyq.site_sqm(SQM, lat, lon)
 with t1:
     st.caption("النجوم والكواكب اللي تبين من مكانك بهاي الليلة، ووين تباوع.")
-    tg = targets(lat, lon, night, sqm)
+    tg, tg_notes = targets(lat, lon, night, sqm)
+    if tg_notes:
+        st.warning("⚠️ توقع الجو ما اشتغل لهاي القائمة، فهي تفترض جو طبيعي (غالباً صافي). اعتمد على الجواب الرئيسي فوق للغيوم.")
     vis = tg[tg.score >= skyq.FAIR].sort_values("score", ascending=False)
     if len(vis):
         for r in vis.itertuples():
@@ -311,13 +513,19 @@ with t2:
                 f"الساعة {nxt + timedelta(hours=3):%H:%M}. بعدها بليلة أو ليلتين يبين الهلال بعد الغروب بالغرب:")
     for r in hd.itertuples():
         d = f"{DAYS[r.date.weekday()]} {r.date:%d/%m}"
+        facts = ""
+        if pd.notna(getattr(r, "arcl", None)):
+            facts = (f'<br>📐 الاستطالة (بعده عن الشمس): <b>{r.arcl:.1f}°</b> · ⬆️ ارتفاعه: <b>{r.moon_alt:.1f}°</b> · '
+                     f'⏳ يبقى بعد الغروب: <b>{r.lag_min:.0f} دقيقة</b> · 🌙 سماكة الهلال: <b>{r.width_arcmin:.2f}′</b>')
         if r.final_zone in ("A", "B", "C"):
             st.markdown(f'<div class="spot" style="--c:{SAFE}"><div class="n">🌙 مساء {d}: {HILAL_AR[r.final_zone]}</div>'
                         f'⏰ الساعة {r.best_time:%H:%M} (بعد الغروب بشوية) · 🧭 باوع لـ<b>{compass(r.moon_az)}</b> '
-                        f'واطي كلش قرب الأفق</div>', unsafe_allow_html=True)
+                        f'واطي كلش قرب الأفق{facts}</div>', unsafe_allow_html=True)
         else:
-            st.markdown(f'<div class="spot" style="--c:#e5484d"><div class="n">🌑 مساء {d}: {HILAL_AR["D"]}</div></div>',
+            st.markdown(f'<div class="spot" style="--c:#e5484d"><div class="n">🌑 مساء {d}: {HILAL_AR["D"]}</div>{facts}</div>',
                         unsafe_allow_html=True)
+    st.caption("شنو يقرر رؤية الهلال؟ **الاستطالة**، **ارتفاعه فوق الأفق**، **مدة بقائه بعد الغروب**، **سماكته وسطوعه مقابل الشفق**، "
+               "و**صفاء الأفق وخبرة الراصد ونوع الجهاز**. **عمر الهلال وحده ما يكفي**، وحساب موقعه بدقة ما يعني ضمان رؤيته.")
 with t3:
     st.markdown("لو المدينة تقلل الإضاءة اللي ما إلها داعي (ضوّ يطلع للسما بدل الشارع)، شگد تصير السما أحلى؟")
     cut = st.segmented_control("شكد نقلل؟", [0.2, 0.4, 0.6], default=0.4, format_func=lambda v: f"نقلل {v:.0%}") or 0.4
@@ -342,6 +550,7 @@ with t5:
     st.markdown("""
 - **الدرجة (من 100):** شكد الظروف زينة للرصد بمكانك ووقتك. فوق 50 = تستاهل تطلع.
 - **التلوث الضوئي 💡:** ضوّ المدينة اللي يطلع للسما ويخلي النجوم ما تبين. نقيسه من **صور الأقمار الصناعية لناسا** بالليل.
+- **نسبة التلوث الضوئي (%):** 0% يعني سما البر الصافية، و100% يعني أضوى مركز مدينة. كل ما تقل النسبة تشوف نجوم أكثر.
 - **درب التبانة 🌌:** مجرّتنا! تبين كشريط أبيض ضبابي بس بمكان مظلم كلش.
 - **الغبار / العجاج 🌫️:** يخلي السما باهتة ويطمس النجوم الخافتة.
 - **القمر 🌕:** لما يكون بدر يضوّي السما هواية، فأحسن رصد يكون بليالي المحاق (بلا قمر).

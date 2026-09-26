@@ -1,15 +1,18 @@
-"""Decision engine (Mosul / Nineveh): place + date/time + observation type -> Sky Score, class, best time, best spots.
+"""Decision engine (Mosul / Nineveh and San Francisco Bay Area): place + date/time + observation type ->
+Sky Score, class, best time, best spots. Every public function takes region="mosul" | "sf".
 
   Sky Score (0-100) = weighted sum of four component scores, weights depend on the observation type:
     light pollution  - hybrid: XGBoost sky-quality model + calibrated physics sky glow, on recent NASA VNP46A2 lights
     weather          - cloud, humidity, dust (AOD), visibility from the Open-Meteo / CAMS forecast
     moon             - illumination and altitude (astropy)
     elevation        - Open-Meteo elevation (higher = less haze above you)
+    smoke (SF)       - PM2.5 from CAMS (wildfire smoke); fog (SF) = low cloud, ignored for sites above the marine layer
   then hard gates: daylight/twilight and overcast cap the score. Classes: 0-25 Poor, 26-50 Moderate, 51-75 Good, 76-100 Excellent.
 """
 import io
 import os
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import numpy as np
 import pandas as pd
@@ -22,7 +25,6 @@ import skyq
 
 DATA = skyq.DATA
 NINEVEH = skyq.NINEVEH
-UTC_OFFSET = 3  # ponytail: Iraq has no DST; Mosul-only app
 STEP = 2  # grid cells every 2 px = 0.04 deg (~4 km)
 CELLS_PATH = os.path.join(DATA, "nineveh_cells.csv")
 VNP_PATH = os.path.join(DATA, "vnp46a2_iraqwork.npy")
@@ -35,6 +37,28 @@ TYPES = {  # key: (Arabic label, weights light/weather/moon/elevation)
     "meteors": ("رصد الشهب ☄️", (0.35, 0.35, 0.25, 0.05)),
 }
 BINS = [25, 50, 75]  # -> Poor / Moderate / Good / Excellent
+SF_WEIGHTS = {  # plans/sf_usa_3day_plan.json: light / weather / moon / elevation / smoke
+    "stargazing": (0.35, 0.30, 0.15, 0.10, 0.10), "milky_way": (0.40, 0.20, 0.25, 0.05, 0.10),
+    "astrophotography": (0.35, 0.25, 0.25, 0.05, 0.10), "meteors": (0.30, 0.30, 0.25, 0.05, 0.10),
+}
+
+
+def _sf_cells():
+    import sf  # lazy: sf imports engine
+    return sf.cells()
+
+
+REGIONS = {
+    "mosul": dict(bbox=NINEVEH, tz="Asia/Baghdad", cells=lambda: cells(), fog=False, smoke=False,
+                  weights={k: w + (0.0,) for k, (_, w) in TYPES.items()}),
+    "sf": dict(bbox=(36.4, -123.3, 38.6, -121.0), tz="America/Los_Angeles", cells=_sf_cells, fog=True, smoke=True,
+               weights=SF_WEIGHTS),  # bbox = sf.STUDY
+}
+
+
+def in_region(lat, lon, region):
+    a0, o0, a1, o1 = REGIONS[region]["bbox"]
+    return a0 <= lat <= a1 and o0 <= lon <= o1
 
 
 def to_class(score):
@@ -103,12 +127,19 @@ def elevation(lats, lons, coarse=0.08):
     return grid[iy, ix]
 
 
-def road_distance_km(lats, lons):
-    """Distance to the nearest major road (motorway/trunk/primary/secondary) from OpenStreetMap (Overpass)."""
-    la0, lo0, la1, lo1 = NINEVEH
-    q = f'[out:json][timeout:120];way["highway"~"^(motorway|trunk|primary|secondary)$"]({la0 - 0.3},{lo0 - 0.3},{la1 + 0.3},{lo1 + 0.3});out geom;'
-    r = requests.post("https://overpass-api.de/api/interpreter", data={"data": q}, timeout=180,
-                      headers={"User-Agent": "SkyQ-Mosul-hackathon-prototype/0.1"})
+def road_distance_km(lats, lons, bbox=NINEVEH, classes="motorway|trunk|primary|secondary"):
+    """Distance to the nearest major road from OpenStreetMap (Overpass; tries two public servers)."""
+    import time
+    la0, lo0, la1, lo1 = bbox
+    q = f'[out:json][timeout:180];way["highway"~"^({classes})$"]({la0 - 0.3},{lo0 - 0.3},{la1 + 0.3},{lo1 + 0.3});out geom;'
+    for attempt, url in enumerate(["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"] * 2):
+        try:
+            r = requests.post(url, data={"data": q}, timeout=240, headers={"User-Agent": "SkyQ-hackathon-prototype/0.1"})
+            if r.ok:
+                break
+        except requests.RequestException:
+            pass
+        time.sleep(10 * (attempt + 1))
     r.raise_for_status()
     res = 0.01  # rasterise roads on a ~1 km grid, then Euclidean distance transform
     gy0, gx0 = la1 + 0.3, lo0 - 0.3
@@ -122,7 +153,7 @@ def road_distance_km(lats, lons):
             xs = ((np.linspace(a["lon"], b["lon"], n) - gx0) / res).astype(int)
             ok = (ys >= 0) & (ys < h) & (xs >= 0) & (xs < w)
             grid[ys[ok], xs[ok]] = True
-    dist = distance_transform_edt(~grid, sampling=(res * 111.2, res * 111.2 * np.cos(np.radians(36.2))))
+    dist = distance_transform_edt(~grid, sampling=(res * 111.2, res * 111.2 * np.cos(np.radians((la0 + la1) / 2))))
     ys = ((gy0 - np.asarray(lats)) / res).astype(int).clip(0, h - 1)
     xs = ((np.asarray(lons) - gx0) / res).astype(int).clip(0, w - 1)
     return dist[ys, xs]
@@ -170,14 +201,15 @@ def local_night(d: date):
     return [datetime.combine(d, datetime.min.time()) + timedelta(hours=18 + h) for h in range(13)]
 
 
-def conditions(lats, lons, when: datetime):
-    """Cloud, humidity, dust (AOD), visibility at local time `when` for many points (one API call each).
-    Falls back to Iraqi climatology outside the forecast horizon (flagged)."""
-    n, notes = len(lats), []
+def conditions(lats, lons, whens, tz="Asia/Baghdad"):
+    """Cloud (total + low), humidity, visibility, dust/smoke (AOD, PM2.5) at local time(s) for one or many points.
+    Rows are point-major: row = point_index * len(whens) + time_index. Falls back to climatology (flagged)."""
+    whens = whens if isinstance(whens, list) else [whens]
+    keys = [w.strftime("%Y-%m-%dT%H:00") for w in whens]
+    n, notes = len(lats) * len(keys), []
     base = dict(latitude=",".join(f"{v:.3f}" for v in lats), longitude=",".join(f"{v:.3f}" for v in lons),
-                timezone="Asia/Baghdad", start_date=str(when.date()), end_date=str(when.date()))
-    key = when.strftime("%Y-%m-%dT%H:00")
-    out = pd.DataFrame({k: np.full(n, v) for k, v in skyq.DEFAULT_WX.items()})
+                timezone=tz, start_date=str(min(whens).date()), end_date=str(max(whens).date()))
+    out = pd.DataFrame({k: np.full(n, v) for k, v in {**skyq.DEFAULT_WX, "cloud_cover_low": 0.0, "pm2_5": 10.0}.items()})
 
     def pull(url, fields, cols):
         try:
@@ -187,49 +219,65 @@ def conditions(lats, lons, when: datetime):
             js = js if isinstance(js, list) else [js]
             for i, loc in enumerate(js):
                 t = loc["hourly"]["time"]
-                if key in t:
-                    for f, c in zip(fields, cols):
-                        v = loc["hourly"][f][t.index(key)]
-                        if v is not None:
-                            out.loc[i, c] = v / 1000 if f == "visibility" else v
+                for j, key in enumerate(keys):
+                    if key in t:
+                        for f, c in zip(fields, cols):
+                            v = loc["hourly"][f][t.index(key)]
+                            if v is not None:
+                                out.loc[i * len(keys) + j, c] = v / 1000 if f == "visibility" else v
             return True
         except Exception:
             return False
 
-    if not pull("https://api.open-meteo.com/v1/forecast", ["cloud_cover", "relative_humidity_2m", "visibility"],
-                ["cloud_cover", "humidity", "visibility_km"]):
+    if not pull("https://api.open-meteo.com/v1/forecast",
+                ["cloud_cover", "cloud_cover_low", "relative_humidity_2m", "visibility", "wind_speed_10m", "wind_speed_250hPa"],
+                ["cloud_cover", "cloud_cover_low", "humidity", "visibility_km", "wind10", "wind250"]):
         notes.append("weather")
-    if not pull("https://air-quality-api.open-meteo.com/v1/air-quality", ["aerosol_optical_depth"], ["aod"]):
+    if not pull("https://air-quality-api.open-meteo.com/v1/air-quality", ["aerosol_optical_depth", "pm2_5"], ["aod", "pm2_5"]):
         notes.append("dust")
     return out, notes
 
 
-def sky_geometry(lat, lon, times_local):
-    """Sun altitude, Moon altitude and illumination at local times (UTC+3)."""
-    g = skyq.geometry([t - timedelta(hours=UTC_OFFSET) for t in times_local], lat, lon, None, radec=(0.0, 0.0, 0.0))
+def sky_geometry(lat, lon, times_local, tz="Asia/Baghdad"):
+    """Sun altitude, Moon altitude and illumination at local wall-clock times (daylight saving handled by zoneinfo)."""
+    utc = [t.replace(tzinfo=ZoneInfo(tz)).astimezone(timezone.utc).replace(tzinfo=None) for t in times_local]
+    g = skyq.geometry(utc, lat, lon, None, radec=(0.0, 0.0, 0.0))
     return g[["sun_alt", "moon_alt", "moon_illum"]]
 
 
 # ---------------------------------------------------------------- scoring
-def components(df):
-    """0-100 component scores from a frame with lp_score, elevation_m, cloud_cover, humidity, aod, visibility_km,
-    moon_alt, moon_illum."""
-    weather = (100 * (1 - df.cloud_cover / 100) ** 1.5 * (1 - ((df.humidity - 70) / 60).clip(0, 0.5))
+def effective_cloud(df, region="mosul"):
+    """Cloud that actually blocks the sky. SF: sites >= 600 m usually sit above the marine layer, so most low cloud
+    (fog) is below them. ponytail: fixed 70% discount; learn it from field reports."""
+    if not REGIONS[region]["fog"]:
+        return df.cloud_cover
+    return (df.cloud_cover - np.where(df.elevation_m >= 600, 0.7, 0.0) * df.cloud_cover_low).clip(0, 100)
+
+
+def components(df, region="mosul"):
+    """0-100 component scores: light, weather, moon, elevation, smoke."""
+    cloud = effective_cloud(df, region)
+    weather = (100 * (1 - cloud / 100) ** 1.5 * (1 - ((df.humidity - 70) / 60).clip(0, 0.5))
                * (1 - (df.aod - 0.2)).clip(0.3, 1) * (df.visibility_km / 10).clip(0.3, 1))
     moon = np.where(df.moon_alt <= 0, 100.0,
                     100 * (1 - df.moon_illum ** 1.5 * np.sqrt(np.sin(np.radians(df.moon_alt.clip(0, 90))))))
     elev = (df.elevation_m / 1500).clip(0, 1) * 100
+    smoke = 100 * (1 - (df.pm2_5 - 12) / 50).clip(0, 1)
     return pd.DataFrame(dict(light=df.lp_score.to_numpy(), weather=weather.to_numpy(), moon=np.clip(moon, 0, 100),
-                             elevation=elev.to_numpy()), index=df.index)
+                             elevation=elev.to_numpy(), smoke=smoke.to_numpy()), index=df.index)
 
 
-def sky_score(df, obs_type):
-    """Weighted Sky Score + class + reason gates."""
-    c = components(df)
-    w = np.array(TYPES[obs_type][1])
-    total = c[["light", "weather", "moon", "elevation"]].to_numpy() @ w
+def sky_score(df, obs_type, region="mosul"):
+    """Weighted Sky Score + class + hard caps."""
+    R = REGIONS[region]
+    c = components(df, region)
+    total = c[["light", "weather", "moon", "elevation", "smoke"]].to_numpy() @ np.array(R["weights"][obs_type])
     total = np.where(df.sun_alt > -12, np.minimum(total, 10), total)  # not dark yet
-    total = np.where(df.cloud_cover >= 80, np.minimum(total, 20), total)  # overcast
+    total = np.where(effective_cloud(df, region) >= 80, np.minimum(total, 20), total)  # overcast
+    if R["fog"]:
+        total = np.where((df.cloud_cover_low >= 70) & (df.elevation_m < 400), np.minimum(total, 25), total)  # in the fog
+    if R["smoke"]:
+        total = np.where(df.pm2_5 >= 55, np.minimum(total, 30), total)  # wildfire smoke
     return c.assign(score=np.round(total).astype(int), cls=to_class(total))
 
 
@@ -251,35 +299,45 @@ def suitable(row):
 
 
 # ---------------------------------------------------------------- public API
-def analyze(lat, lon, when: datetime, obs_type="stargazing"):
+def _num(v, nd=1):
+    return None if pd.isna(v) else round(float(v), nd)
+
+
+def analyze(lat, lon, when: datetime, obs_type="stargazing", region="mosul"):
     """Everything the result card needs for one place and time."""
-    tab = cells()
-    cell = nearest(tab, lat, lon)
-    cond, notes = conditions([lat], [lon], when)
-    geo = sky_geometry(lat, lon, [when])
+    R = REGIONS[region]
+    cell = nearest(R["cells"](), lat, lon)
+    cond, notes = conditions([lat], [lon], when, R["tz"])
+    geo = sky_geometry(lat, lon, [when], R["tz"])
     df = pd.concat([cond, geo], axis=1).assign(lp_score=cell.lp_score, lp_cls=cell.lp_cls, elevation_m=cell.elevation_m)
-    row = pd.concat([df, sky_score(df, obs_type)], axis=1).iloc[0]
+    row = pd.concat([df, sky_score(df, obs_type, region)], axis=1).iloc[0]
     lp, moon = labels(row)
-    best = best_time(lat, lon, when.date() if when.hour >= 12 else when.date() - timedelta(days=1), obs_type)
-    return dict(lat=lat, lon=lon, when=when, type=obs_type, score=int(row.score), cls=int(row.cls),
-                light_pollution=lp, moon_impact=moon, night_light_index=round(float(cell.night_light)),
-                cloud_cover=round(float(row.cloud_cover)), humidity=round(float(row.humidity)), aod=round(float(row.aod), 2),
-                elevation_m=round(float(cell.elevation_m)), road_km=round(float(cell.road_km), 1),
-                components={k: round(float(row[k])) for k in ("light", "weather", "moon", "elevation")},
+    best = best_time(lat, lon, when.date() if when.hour >= 12 else when.date() - timedelta(days=1), obs_type, region)
+    return dict(lat=lat, lon=lon, when=when, type=obs_type, region=region, score=int(row.score), cls=int(row.cls),
+                lp_cls=int(row.lp_cls), light_pollution=lp, moon_impact=moon, moon_score=round(float(row.moon)),
+                night_light_index=round(float(cell.night_light)),
+                cloud_cover=round(float(row.cloud_cover)), cloud_cover_low=round(float(row.cloud_cover_low)),
+                humidity=round(float(row.humidity)), aod=round(float(row.aod), 2), pm2_5=round(float(row.pm2_5)),
+                visibility_km=round(float(row.visibility_km), 1), wind10=round(float(row.wind10)),
+                wind250=round(float(row.wind250)), seeing_arcsec=round(float(skyq.seeing(row.wind10, row.wind250)), 1),
+                sun_alt=round(float(row.sun_alt), 1), moon_alt=round(float(row.moon_alt), 1),
+                moon_illum=round(float(row.moon_illum), 2),
+                elevation_m=round(float(cell.elevation_m)), road_km=_num(cell.road_km),
+                sqm=_num(cell.sqm, 2) if "sqm" in cell else None,
+                components={k: round(float(row[k])) for k in ("light", "weather", "moon", "elevation", "smoke")},
                 suitable=suitable(row), recommended=bool(row.score >= 51), best_time=best["window"],
                 hourly=best["hourly"], notes=notes)
 
 
-def best_time(lat, lon, night: date, obs_type):
+def best_time(lat, lon, night: date, obs_type, region="mosul"):
     """Hourly Sky Score through the night at one place; best window = longest run >= 51 (Good)."""
-    tab = cells()
-    cell = nearest(tab, lat, lon)
+    R = REGIONS[region]
+    cell = nearest(R["cells"](), lat, lon)
     times = local_night(night)
-    wx, _ = skyq.weather(lat, lon, night)
-    df = wx[["cloud_cover", "humidity", "aod", "visibility_km"]].reset_index(drop=True)
-    df = pd.concat([df, sky_geometry(lat, lon, times)], axis=1)
+    df, _ = conditions([lat], [lon], times, R["tz"])
+    df = pd.concat([df, sky_geometry(lat, lon, times, R["tz"])], axis=1)
     df = df.assign(lp_score=cell.lp_score, lp_cls=cell.lp_cls, elevation_m=cell.elevation_m)
-    s = sky_score(df, obs_type).assign(time=times)
+    s = sky_score(df, obs_type, region).assign(time=times)
     best, run = None, []
     for i, ok in enumerate(list(s.score >= 51) + [False]):
         if ok:
@@ -292,12 +350,14 @@ def best_time(lat, lon, night: date, obs_type):
     return dict(window=window, hourly=s[["time", "score", "cls"]])
 
 
-def recommend(lat, lon, radius_km, when: datetime, obs_type="stargazing", n=3, max_road_km=5, min_sep_km=12):
+def recommend(lat, lon, radius_km, when: datetime, obs_type="stargazing", n=3, max_road_km=5, min_sep_km=12, region="mosul"):
     """Rank reachable places (<= max_road_km from a major road) within radius_km by Sky Score at `when`.
     Light pollution pre-filters the 25 best candidates; weather is then fetched for all of them in one call."""
-    tab = cells()
+    R = REGIONS[region]
+    tab = R["cells"]()
     d = skyq.haversine_km(lat, lon, tab.lat.to_numpy(), tab.lon.to_numpy())
-    cand = tab.assign(km=d)[(d <= radius_km) & (tab.road_km <= max_road_km)].sort_values(["lp_score", "km"], ascending=[False, True])
+    reachable = tab.road_km.isna() | (tab.road_km <= max_road_km)  # NaN = road data unavailable -> don't filter
+    cand = tab.assign(km=d)[(d <= radius_km) & reachable].sort_values(["lp_score", "km"], ascending=[False, True])
     picked = []
     for r in cand.itertuples():
         if all(skyq.haversine_km(r.lat, r.lon, p.lat, p.lon) >= min_sep_km for p in picked):
@@ -307,10 +367,10 @@ def recommend(lat, lon, radius_km, when: datetime, obs_type="stargazing", n=3, m
     if not picked:
         return pd.DataFrame(), []
     c = pd.DataFrame(picked).drop(columns="Index").reset_index(drop=True)
-    cond, notes = conditions(c.lat.tolist(), c.lon.tolist(), when)
-    geo = sky_geometry(lat, lon, [when])  # Sun/Moon barely change across 100 km
+    cond, notes = conditions(c.lat.tolist(), c.lon.tolist(), when, R["tz"])
+    geo = sky_geometry(lat, lon, [when], R["tz"])  # Sun/Moon barely change across 100 km
     df = pd.concat([c, cond], axis=1).assign(**{k: float(geo[k].iloc[0]) for k in geo})
-    df = pd.concat([df, sky_score(df, obs_type)], axis=1)
+    df = pd.concat([df, sky_score(df, obs_type, region)], axis=1)
     return df.sort_values(["score", "km"], ascending=[False, True]).head(n).reset_index(drop=True), notes
 
 
