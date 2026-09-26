@@ -317,25 +317,11 @@ rec = rec[rec.score > a["score"]].reset_index(drop=True) if len(rec) else rec  #
 k = a["cls"]
 color, verdict, _ = LEVEL[k]
 why = "".join(f"<li>{r}</li>" for r in reasons(a))
-_w = engine.REGIONS["mosul"]["weights"][obs]
-_c = a["components"]
-_raw = [_c["light"] * _w[0], _c["weather"] * _w[1], _c["moon"] * _w[2], _c["elevation"] * _w[3]]
-_parts = [int(v) for v in _raw]
-if a["sun_alt"] <= -12 and a["cloud_cover"] < 80:  # no cap: round so the parts add up exactly to the score
-    for i in sorted(range(4), key=lambda i: _raw[i] - _parts[i], reverse=True)[:max(0, a["score"] - sum(_parts))]:
-        _parts[i] += 1
-score_parts = (f"💡 ظلام السما {_parts[0]} + ☁️ الجو {_parts[1]} + 🌕 القمر {_parts[2]} + ⛰️ الارتفاع {_parts[3]}")
-if a["sun_alt"] > -12:
-    score_parts += " ← وتنقص لأن الشمس بعدها ما غابت"
-elif a["cloud_cover"] >= 80:
-    score_parts += " ← وتنقص لأن الغيوم فوق 80%"
-score_parts += " · التفاصيل بـ «🧮 منين اجت الدرجة» تحت"
 st.markdown(f"""<div class="hero" style="--c:{color}; --s:{a['score']}">
   <div class="ring"><div class="in"><div><b>{a['score']}</b><small>من 100</small></div></div></div>
   <div><div class="verdict">{verdict}</div>
   <div>{TYPE_UI[obs][0]} · {place} · {DAYS[night.weekday()]} {HOUR_LABEL[hour]}</div>
-  <ul class="why">{why}</ul>
-  <div class="hint">🧮 <b>{a['score']}</b> = {score_parts}</div></div></div>""", unsafe_allow_html=True)
+  <ul class="why">{why}</ul></div></div>""", unsafe_allow_html=True)
 
 # where the score comes from (live breakdown)
 with st.expander(f"🧮 منين اجت الدرجة {a['score']}؟ شلون انحسبت؟"):
