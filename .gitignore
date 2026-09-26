@@ -8,3 +8,4 @@ data/*.log
 # user-submitted observations stay local
 data/observations.csv
 data/ground_obs.csv
+tmp/

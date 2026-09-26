@@ -1,5 +1,11 @@
 # SkyQ Mosul — light pollution & observation-quality prototype (study area: Mosul / Nineveh)
 
+## Primary experience: هلال العراق — Ramadan and Eid
+
+The app now opens on an Arabic crescent-observation planner for Ramadan, Shawwal / Eid al-Fitr and Dhu al-Hijjah / Eid al-Adha. Choose an Iraqi city or coordinates and a Hijri year to calculate three observing evenings, inspect sunset/moonset and pointing direction, export a CSV plan, and download an unverified observation record. Existing stargazing pages remain available.
+
+This is a **visibility planning tool, not an official month announcement**. Atmospheric adjustments are experimental and shown only with complete near-term inputs; distant dates show geometry only. No official announcement feed, central report database or verified site ranking is connected. See [feature plan](plans/ramadan-feature.md) for the pitch, differences from alternatives, evidence and validation roadmap. Run `python -m unittest test_crescent -v` to check the new flow.
+
 ASI Hackathon · Challenge 1: التلوث الضوئي وصعوبة الرصد الفلكي
 
 **Problem.** Iraqi observers (e.g. University of Baghdad, Dept. of Astronomy & Space) lose nights to city sky glow,
